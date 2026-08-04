@@ -2,20 +2,14 @@ from __future__ import division
 import numpy as np
 
 # --------------------------------------------------------------------------
-# bitarray-free reimplementation.
+# Packed-bytes reimplementation to reduce memory usage.
 #
-# The original module used the `bitarray` package (endian="little") to read
-# and manipulate the packed 2-bit-per-genotype plink .bed format. Here we
-# represent the same bit sequence as a numpy uint8 array of 0/1 values,
-# produced with np.unpackbits(..., bitorder='little'), which uses the exact
-# same bit ordering as bitarray(endian="little"). This was verified against
-# the plink magic-number bytes (0x6c, 0x1b) before relying on it elsewhere.
-#
-# Tradeoff: this uses ~8x more memory than the packed bitarray representation
-# (1 byte per bit vs. 8 bits per byte), since numpy has no native bit-packed
-# array type that supports arbitrary strided slicing the way bitarray does.
-# For very large reference panels this may matter -- test on your actual
-# data size before relying on this for production-scale runs.
+# The original module unpacked the entire .bed payload into a numpy uint8
+# array of 0/1 values using np.unpackbits(..., bitorder='little'), which used
+# ~8x more memory (1 byte per bit vs 8 bits per byte). Here we keep the raw
+# packed bytes from the .bed file and only unpack the small byte ranges we
+# need on-demand (per-SNP or per-chunk). This preserves identical outputs but
+# drastically reduces peak memory usage for large panels.
 # --------------------------------------------------------------------------
 
 
@@ -91,6 +85,9 @@ class __GenotypeArrayInMemory__(object):
         self.mafMin = mafMin if mafMin is not None else 0
         self._currentSNP = 0
         (self.nru, self.geno) = self.__read__(fname, self.m, n)
+        # note: self.geno is now the packed bytes (uint8 array), not an unpacked bit
+        # array. Per-SNP unpacking is done on demand in downstream methods.
+
         # filter individuals
         if keep_indivs is not None:
             keep_indivs = np.array(keep_indivs, dtype='int')
@@ -300,30 +297,45 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         if not np.array_equal(mode_bits, self._EXPECTED_MODE_BITS):
             raise IOError("Plink .bed file must be in default SNP-major mode")
 
-        # check file length
-        self.geno = np.unpackbits(raw[3:], bitorder='little')
-        self.__test_length__(self.geno, self.m, self.nru)
+        # keep packed bytes rather than unpacking the entire file
+        packed = raw[3:]
+        self.__test_length__(packed, self.m, self.nru)
+        self.geno = packed
         return (self.nru, self.geno)
 
-    def __test_length__(self, geno, m, nru):
+    def __test_length__(self, packed_bytes, m, nru):
+        # expected number of bits
         exp_len = 2*m*nru
-        real_len = len(geno)
+        real_len = packed_bytes.size * 8
         if real_len != exp_len:
             s = "Plink .bed file has {n1} bits, expected {n2}"
             raise IOError(s.format(n1=real_len, n2=exp_len))
 
     def __filter_indivs__(self, geno, keep_indivs, m, n):
+        # geno is packed bytes. We filter individuals by extracting each SNP
+        # unpacking just that SNP's bits, selecting kept individuals and
+        # repacking the resulting bits.
         n_new = len(keep_indivs)
         e = (4 - n_new % 4) if n_new % 4 != 0 else 0
         nru_new = n_new + e
         nru = self.nru
-        z = np.zeros(m*2*nru_new, dtype=np.uint8)
-        for idx, i in enumerate(keep_indivs):
-            z[2*idx::2*nru_new] = geno[2*i::2*nru]
-            z[2*idx+1::2*nru_new] = geno[2*i+1::2*nru]
+        bytes_per_snp = (2 * nru) // 8
+        bytes_per_snp_new = (2 * nru_new) // 8
+        out_chunks = []
+        for j in range(m):
+            byte_start = j * bytes_per_snp
+            byte_end = byte_start + bytes_per_snp
+            z_bytes = geno[byte_start:byte_end]
+            z = np.unpackbits(z_bytes, bitorder='little')[:2*nru]
+            z_new = np.zeros(2 * nru_new, dtype=np.uint8)
+            for idx, i in enumerate(keep_indivs):
+                z_new[2*idx::2*nru_new] = z[2*i::2*nru]
+                z_new[2*idx+1::2*nru_new] = z[2*i+1::2*nru]
+            out_chunks.append(np.packbits(z_new, bitorder='little'))
 
         self.nru = nru_new
-        return (z, m, n_new)
+        y = np.concatenate(out_chunks) if out_chunks else np.array([], dtype=np.uint8)
+        return (y, m, n_new)
 
     def __filter_snps_maf__(self, geno, m, n, mafMin, keep_snps):
         '''
@@ -358,9 +370,13 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
             keep_snps = range(m)
         kept_snps = []
         freq = []
-        y_chunks = []
+        out_chunks = []
+        bytes_per_snp = (2 * nru) // 8
         for j in keep_snps:
-            z = geno[2*nru*j:2*nru*(j+1)]
+            byte_start = j * bytes_per_snp
+            byte_end = byte_start + bytes_per_snp
+            z_bytes = geno[byte_start:byte_end]
+            z = np.unpackbits(z_bytes, bitorder='little')[:2*nru]
             A = z[0::2]
             a = int(A.sum())
             B = z[1::2]
@@ -372,11 +388,11 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
             het_miss_ct = a+b-2*c  # remove SNPs that are only either het or missing
             if np.minimum(f, 1-f) > mafMin and het_miss_ct < n:
                 freq.append(f)
-                y_chunks.append(z)
+                out_chunks.append(z_bytes)
                 m_poly += 1
                 kept_snps.append(j)
 
-        y = np.concatenate(y_chunks) if y_chunks else np.array([], dtype=np.uint8)
+        y = np.concatenate(out_chunks) if out_chunks else np.array([], dtype=np.uint8)
         return (y, m_poly, n, kept_snps, freq)
 
     def nextSNPs(self, b, minorRef=None):
@@ -415,7 +431,11 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         c = self._currentSNP
         n = self.n
         nru = self.nru
-        bit_slice = self.geno[2*c*nru:2*(c+b)*nru]
+        bytes_per_snp = (2 * nru) // 8
+        byte_start = 2 * c * nru // 8
+        byte_end = 2 * (c + b) * nru // 8
+        bit_slice_bytes = self.geno[byte_start:byte_end]
+        bit_slice = np.unpackbits(bit_slice_bytes, bitorder='little')[:2*b*nru]
         codon_val = bit_slice[0::2].astype(np.uint8) + 2*bit_slice[1::2].astype(np.uint8)
         X = self._DECODE_TABLE[codon_val].reshape((b, nru)).T
         X = X[0:n, :]
