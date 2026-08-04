@@ -1,6 +1,22 @@
 from __future__ import division
 import numpy as np
-import bitarray as ba
+
+# --------------------------------------------------------------------------
+# bitarray-free reimplementation.
+#
+# The original module used the `bitarray` package (endian="little") to read
+# and manipulate the packed 2-bit-per-genotype plink .bed format. Here we
+# represent the same bit sequence as a numpy uint8 array of 0/1 values,
+# produced with np.unpackbits(..., bitorder='little'), which uses the exact
+# same bit ordering as bitarray(endian="little"). This was verified against
+# the plink magic-number bytes (0x6c, 0x1b) before relying on it elsewhere.
+#
+# Tradeoff: this uses ~8x more memory than the packed bitarray representation
+# (1 byte per bit vs. 8 bits per byte), since numpy has no native bit-packed
+# array type that supports arbitrary strided slicing the way bitarray does.
+# For very large reference panels this may matter -- test on your actual
+# data size before relying on this for production-scale runs.
+# --------------------------------------------------------------------------
 
 
 def getBlockLefts(coords, max_dist):
@@ -243,14 +259,20 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
     '''
     Interface for Plink .bed format
     '''
-    def __init__(self, fname, n, snp_list, keep_snps=None, keep_indivs=None, mafMin=None):
-        self._bedcode = {
-            2: ba.bitarray('11'),
-            9: ba.bitarray('10'),
-            1: ba.bitarray('01'),
-            0: ba.bitarray('00')
-            }
 
+    # Decode table: index = 2-bit codon value (bit0 + 2*bit1), value = genotype code.
+    # Matches the original _bedcode mapping:
+    #   codon '11' (value 3) -> 2   codon '10' (value 1) -> 9
+    #   codon '01' (value 2) -> 1   codon '00' (value 0) -> 0
+    _DECODE_TABLE = np.array([0, 9, 1, 2], dtype='float64')
+
+    # Expected header bits, read with the same bit ordering as
+    # bitarray(endian="little"): np.unpackbits(byte_array, bitorder='little').
+    _EXPECTED_MAGIC_BITS = np.array([0, 0, 1, 1, 0, 1, 1, 0,
+                                      1, 1, 0, 1, 1, 0, 0, 0], dtype=np.uint8)
+    _EXPECTED_MODE_BITS = np.array([1, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
+
+    def __init__(self, fname, n, snp_list, keep_snps=None, keep_indivs=None, mafMin=None):
         __GenotypeArrayInMemory__.__init__(self, fname, n, snp_list, keep_snps=keep_snps,
             keep_indivs=keep_indivs, mafMin=mafMin)
 
@@ -258,24 +280,28 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         if not fname.endswith('.bed'):
             raise ValueError('.bed filename must end in .bed')
 
-        fh = open(fname, 'rb')
-        magicNumber = ba.bitarray(endian="little")
-        magicNumber.fromfile(fh, 2)
-        bedMode = ba.bitarray(endian="little")
-        bedMode.fromfile(fh, 1)
+        with open(fname, 'rb') as fh:
+            raw = np.frombuffer(fh.read(), dtype=np.uint8)
+
+        if len(raw) < 3:
+            raise IOError("Plink .bed file is too short to contain a valid header")
+
+        magic_bits = np.unpackbits(raw[0:2], bitorder='little')
+        mode_bits = np.unpackbits(raw[2:3], bitorder='little')
+
         e = (4 - n % 4) if n % 4 != 0 else 0
         nru = n + e
         self.nru = nru
+
         # check magic number
-        if magicNumber != ba.bitarray('0011011011011000'):
+        if not np.array_equal(magic_bits, self._EXPECTED_MAGIC_BITS):
             raise IOError("Magic number from Plink .bed file not recognized")
 
-        if bedMode != ba.bitarray('10000000'):
+        if not np.array_equal(mode_bits, self._EXPECTED_MODE_BITS):
             raise IOError("Plink .bed file must be in default SNP-major mode")
 
         # check file length
-        self.geno = ba.bitarray(endian="little")
-        self.geno.fromfile(fh)
+        self.geno = np.unpackbits(raw[3:], bitorder='little')
         self.__test_length__(self.geno, self.m, self.nru)
         return (self.nru, self.geno)
 
@@ -291,11 +317,10 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         e = (4 - n_new % 4) if n_new % 4 != 0 else 0
         nru_new = n_new + e
         nru = self.nru
-        z = ba.bitarray(m*2*nru_new, endian="little")
-        z.setall(0)
-        for e, i in enumerate(keep_indivs):
-            z[2*e::2*nru_new] = geno[2*i::2*nru]
-            z[2*e+1::2*nru_new] = geno[2*i+1::2*nru]
+        z = np.zeros(m*2*nru_new, dtype=np.uint8)
+        for idx, i in enumerate(keep_indivs):
+            z[2*idx::2*nru_new] = geno[2*i::2*nru]
+            z[2*idx+1::2*nru_new] = geno[2*i+1::2*nru]
 
         self.nru = nru_new
         return (z, m, n_new)
@@ -306,7 +331,7 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         Modified from plink_filter.c
         https://github.com/chrchang/plink-ng/blob/master/plink_filter.c
 
-        Genotypes are read forwards (since we are cheating and using endian="little")
+        Genotypes are read forwards (since we are cheating and using little-endian bit order)
 
         A := (genotype) & 1010...
         B := (genotype) & 0101...
@@ -326,33 +351,32 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         major allele frequency = (b+c)/(2*(n-a+c))
         het ct + missing ct = a + b - 2*c
 
-        Why does bitarray not have >> ????
-
         '''
         nru = self.nru
         m_poly = 0
-        y = ba.bitarray()
         if keep_snps is None:
             keep_snps = range(m)
         kept_snps = []
         freq = []
-        for e, j in enumerate(keep_snps):
+        y_chunks = []
+        for j in keep_snps:
             z = geno[2*nru*j:2*nru*(j+1)]
             A = z[0::2]
-            a = A.count()
+            a = int(A.sum())
             B = z[1::2]
-            b = B.count()
-            c = (A & B).count()
+            b = int(B.sum())
+            c = int(np.sum(A & B))
             major_ct = b + c  # number of copies of the major allele
             n_nomiss = n - a + c  # number of individuals with nonmissing genotypes
             f = major_ct / (2*n_nomiss) if n_nomiss > 0 else 0
             het_miss_ct = a+b-2*c  # remove SNPs that are only either het or missing
             if np.minimum(f, 1-f) > mafMin and het_miss_ct < n:
                 freq.append(f)
-                y += z
+                y_chunks.append(z)
                 m_poly += 1
                 kept_snps.append(j)
 
+        y = np.concatenate(y_chunks) if y_chunks else np.array([], dtype=np.uint8)
         return (y, m_poly, n, kept_snps, freq)
 
     def nextSNPs(self, b, minorRef=None):
@@ -391,8 +415,9 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         c = self._currentSNP
         n = self.n
         nru = self.nru
-        slice = self.geno[2*c*nru:2*(c+b)*nru]
-        X = np.array(slice.decode(self._bedcode), dtype="float64").reshape((b, nru)).T
+        bit_slice = self.geno[2*c*nru:2*(c+b)*nru]
+        codon_val = bit_slice[0::2].astype(np.uint8) + 2*bit_slice[1::2].astype(np.uint8)
+        X = self._DECODE_TABLE[codon_val].reshape((b, nru)).T
         X = X[0:n, :]
         Y = np.zeros(X.shape)
         for j in range(0, b):
