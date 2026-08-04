@@ -23,7 +23,6 @@ setup(name='ldsc',
             'numpy==1.26.4',
             'pandas==2.2.3',
             'scipy==1.7.3',
-            'pysam==0.19.1',            # TODO: confirm actually needed -- not in the fixed environment
             'python-dateutil==2.9.0.post0',
             'pytz==2025.2',
             'six==1.17.0'
