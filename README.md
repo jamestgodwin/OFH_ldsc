@@ -12,7 +12,7 @@ This pipeline is untested and not currently validated.
 dx download Reprogen_2026:/helpful_files/ldsc/
 ```
 
-Please do not edit any of the files in the folder, only edit any files in your own personal directory!  
+Please do not edit any of the files in the folder, only edit any files once they are in your own personal directory!  
 
 ## 2. Create the Virtual Environment (No Conda Required)
 
