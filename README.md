@@ -1,64 +1,38 @@
 # Installing LDSC (Python 3.9+ Branch)
 
-This guide covers the installation of the `ldsc39` branch from the CBIIT repository.
+This guide covers the use of the amended `ldsc39` branch from the CBIIT repository. The repo has been amended to be used directly on Our Future Health's DNAnexus platform. 
 
-## 1. Prerequisites
+This pipeline is untested and not currently validated. 
 
-Ensure you have the following installed on your system:
+## 1. Availability of pipeline
 
-- git
-- Python 3.9 or higher
-
-## 2. Clone the Repository
-
-Clone the specific branch (`ldsc39`) from the CBIIT GitHub repository (or copy this repository into a working directory):
+`ldsc39` is available through the Reprogen_2026 project. You should download the folder using the following command using the terminal in the jupyter workspace
 
 ```
-git clone -b ldsc39 https://github.com/CBIIT/ldsc.git
-cd ldsc
+dx download Reprogen_2026:/helpful_files/ldsc/
 ```
 
-If you have this repository locally (for example you copied the contents into a working directory), ensure you are in the project root where `ldsc.py` and the other scripts live.
+Please do not edit any of the files in the folder, only edit any files in your own personal directory!  
 
-## 3. Create a Virtual Environment (No Conda Required)
+## 2. Create the Virtual Environment (No Conda Required)
 
 You can run LDSC without conda by using Python's built-in venv module and pip. This is the recommended simple approach if you don't want to manage conda environments.
 
-### Using python -m venv (cross-platform)
-
-Unix / macOS:
+### Using python -m venv
 
 ```
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-Windows (PowerShell):
+
+Once the virtual environment is activated, install requirements:
 
 ```
-python -m venv venv
-venv\Scripts\Activate.ps1
+pip install numpy pandas scipy
 ```
 
-Windows (cmd.exe):
-
-```
-python -m venv venv
-venv\Scripts\activate.bat
-```
-
-Once the virtual environment is activated, upgrade pip and install requirements:
-
-```
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-# Some packages may be needed explicitly depending on your platform
-pip install numpy bitarray pandas scipy
-```
-
-(If you prefer not to use a virtual environment, you can install dependencies globally with pip, but this may conflict with other Python projects on your system.)
-
-## 4. Verify Installation
+## 3. Verify Installation
 
 Run the help command to ensure the script executes correctly:
 
@@ -66,7 +40,7 @@ Run the help command to ensure the script executes correctly:
 python ldsc.py -h
 ```
 
-## 5. Download Reference Data
+## 4. Download Reference Data
 
 LDSC requires reference LD scores and HapMap3 SNP lists to run. If you are not using the LDscore cloud web tool and are running this locally, you must download these files:
 
