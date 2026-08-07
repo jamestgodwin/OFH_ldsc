@@ -9,7 +9,7 @@ This pipeline is untested and not currently validated.
 `ldsc39` is available through the Reprogen_2026 project. You should download the folder using the following command using the terminal in the jupyter workspace
 
 ```
-dx download Reprogen_2026:/helpful_files/ldsc/
+dx download Reprogen_2026:/helpful_files/ldsc/ -r
 ```
 
 Please do not edit any of the files in the folder, only edit any files once they are in your own personal directory!  
