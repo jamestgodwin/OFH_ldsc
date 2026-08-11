@@ -63,7 +63,13 @@ Once installed, you can run a basic genetic correlation analysis:
 ```
 ./munge_sumstats.py \
     --sumstats GCST90483463 \
-    --N 705682/ \
+    --N 705682 \
+    --out female_inf_eur \
+    --merge-alleles ./w_hm3.snplist
+
+./munge_sumstats.py \
+    --sumstats GCST90483468 \
+    --N 439987 \
     --out female_inf_eur \
     --merge-alleles ./w_hm3.snplist
 ```
