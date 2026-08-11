@@ -42,7 +42,7 @@ def read_csv(fh, **kwargs):
             print(f"An error occurred while reading the file {fh}: {e}")
             return None
     else:
-        return pd.read_csv(fh,  sep='\s+', na_values='.', **kwargs)
+        return pd.read_csv(fh,  sep='\\s+', na_values='.', **kwargs)
 
 def sub_chr(s, chrom):
     '''Substitute chr for @, else append chr to the end of str.'''
