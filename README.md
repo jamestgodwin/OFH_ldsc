@@ -53,7 +53,7 @@ python munge_sumstats.py --sumstats BBJ_HDLC22.txt --out BBJ_HDLC22
 https://drive.google.com/file/d/1BtpWx02ON33KfjyCFSdmoWYlMZWImh2f/view
 ```
 
-## 6. Basic Usage Example
+## 5. Basic Usage Example
 
 Once installed, you can run a basic heritability analysis:
 
