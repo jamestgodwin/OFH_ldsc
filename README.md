@@ -59,6 +59,8 @@ https://drive.google.com/file/d/1BtpWx02ON33KfjyCFSdmoWYlMZWImh2f/view
 
 Once installed, you can run a basic genetic correlation analysis:
 
+The following is an example of the genetic correlation between male and female infertility in Europeans from the most recent meta-analysis GWAS in Venkatesh et al 2025 (Nat Gen). The summary stats used here are already uploaded in `Reprogen_2026:/helpful_files/GWAS_summary_stats/`
+
 ### Step 1
 ```
 ./munge_sumstats.py \
@@ -70,7 +72,7 @@ Once installed, you can run a basic genetic correlation analysis:
 ./munge_sumstats.py \
     --sumstats GCST90483468 \
     --N 439987 \
-    --out female_inf_eur \
+    --out male_inf_eur \
     --merge-alleles ./w_hm3.snplist
 ```
 
