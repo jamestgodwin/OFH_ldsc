@@ -34,6 +34,7 @@ default_cnames = {
     'SNPID': 'SNP',
     'RS': 'SNP',
     'RSID': 'SNP',
+	'RS_ID': 'SNP',
     'RS_NUMBER': 'SNP',
     'RS_NUMBERS': 'SNP',
     # NUMBER OF STUDIES
