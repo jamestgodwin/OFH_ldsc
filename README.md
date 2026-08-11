@@ -55,15 +55,16 @@ python munge_sumstats.py --sumstats BBJ_HDLC22.txt --out BBJ_HDLC22
 https://drive.google.com/file/d/1BtpWx02ON33KfjyCFSdmoWYlMZWImh2f/view
 ```
 
-## 5. Basic Usage Example
+## 5. Genetic correlations
 
-Once installed, you can run a basic heritability analysis:
+Once installed, you can run a basic genetic correlation analysis:
 
+### Step 1
 ```
-python ldsc.py \
-    --h2 BBJ_HDLC22.sumstats.gz \
-    --ref-ld-chr eas_ldscores/ \
-    --w-ld-chr eas_ldscores/ \
-    --out your_analysis_results
+./munge_sumstats.py \
+    --sumstats GCST90483463 \
+    --N 705682/ \
+    --out female_inf_eur \
+    --merge-alleles ./w_hm3.snplist
 ```
 
