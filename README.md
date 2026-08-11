@@ -32,6 +32,7 @@ Once the virtual environment is activated, install requirements:
 python -m pip install numpy==2.5.1
 pip install pandas scipy
 chmod 755 ./munge_sumstats.py
+chmod 755 ./ldsc.py
 ```
 
 ## 3. Verify Installation
