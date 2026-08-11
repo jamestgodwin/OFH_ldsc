@@ -472,11 +472,11 @@ parser.add_argument('--cts-names', default=None, type=str,
     '--cts-bin DAF,DIST_TO_GENE ')
 parser.add_argument('--per-allele', default=False, action='store_true',
     help='Setting this flag causes LDSC to compute per-allele LD Scores, '
-    'i.e., \ell_j := \sum_k p_k(1-p_k)r^2_{jk}, where p_k denotes the MAF '
+    'i.e., \\ell_j := \sum_k p_k(1-p_k)r^2_{jk}, where p_k denotes the MAF '
     'of SNP j. ')
 parser.add_argument('--pq-exp', default=None, type=float,
     help='Setting this flag causes LDSC to compute LD Scores with the given scale factor, '
-    'i.e., \ell_j := \sum_k (p_k(1-p_k))^a r^2_{jk}, where p_k denotes the MAF '
+    'i.e., \\ell_j := \sum_k (p_k(1-p_k))^a r^2_{jk}, where p_k denotes the MAF '
     'of SNP j and a is the argument to --pq-exp. ')
 parser.add_argument('--no-print-annot', default=False, action='store_true',
     help='By default, setting --cts-bin or --cts-bin-add causes LDSC to print '
