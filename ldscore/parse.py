@@ -296,7 +296,7 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 
             comp = get_compression(fname)
             self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__,
-                                   sep='\s+', compression=comp)
+                                   sep='\\s+', compression=comp)
 
             if self.__colnames__:
                 self.df.columns = self.__colnames__
