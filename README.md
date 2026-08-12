@@ -65,13 +65,13 @@ The following is an example of the genetic correlation between male and female i
 ### Step 1 - get summary statistics in correct format
 ```
 ./munge_sumstats.py \
-    --sumstats GCST90483463 \
+    --sumstats GCST90483463.tsv \
     --N 705682 \
     --out female_inf_eur \
     --merge-alleles ./w_hm3.snplist
 
 ./munge_sumstats.py \
-    --sumstats GCST90483468 \
+    --sumstats GCST90483468.tsv \
     --N 439987 \
     --out male_inf_eur \
     --merge-alleles ./w_hm3.snplist
