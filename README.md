@@ -2,7 +2,7 @@
 
 This guide covers the use of the amended `ldsc39` branch from the CBIIT repository. The repo has been amended to be used directly on Our Future Health's DNAnexus platform. 
 
-This pipeline is untested and not currently validated. 
+This pipeline has been initially tested for genetic correlation computations only using reproductive phenotypes, it seems to work correctly but please let me know if there are any issues/inconsistencies! 
 
 ## 1. Availability of pipeline
 
