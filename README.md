@@ -1,4 +1,4 @@
-# Installing LDSC (Python 3.9+ Branch)
+# Installing LDSC
 
 This guide covers the use of the amended `ldsc39` branch from the CBIIT repository. The repo has been amended to be used directly on Our Future Health's DNAnexus platform. 
 
